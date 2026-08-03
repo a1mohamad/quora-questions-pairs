@@ -1,3 +1,4 @@
+import inspect
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -5,6 +6,7 @@ import torch.nn.functional as F
 class ModelConfig:
     MODEL_TYPE = "LSTM_attention"
     ATTENTION_TYPE = "MultiHead-Bahdanau"
+    TOKENIZER_TYPE = "Whitespace"
     # Embedding
     LAYER_NORM_EMB = False
     FREEZE_TOKEN_EMBEDDING = True
@@ -48,6 +50,8 @@ class ModelConfig:
             and not inspect.isroutine(v)   # functions, methods
             and not isinstance(v, (classmethod, staticmethod))
         }
+
+model_cfg = ModelConfig()
 
 class AttentionHead(nn.Module):
     def __init__(self, hidden_dim, proj_dim, mask_fill_num=model_cfg.MASK_FILL_NUM,
