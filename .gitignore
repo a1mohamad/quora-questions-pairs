@@ -6,3 +6,4 @@ checkpoint/
 *.pth
 *.pt
 embeddings/
+__pycache__/
