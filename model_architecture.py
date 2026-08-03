@@ -168,3 +168,43 @@ class QuoraSiameseClassifier(nn.Module):
         logits = self.fc_dims(feat)
         
         return logits.squeeze(-1)
+
+def export_model_from_notebook(notebook_path: str, output_path: Path,
+                               class_names=("Attention", "MultiHeadAttention", "QuoraSiameseClassifier", "ModelConfig")):
+    """
+    Extract code cells that define any of the given class names from a Jupyter
+    notebook (JSON file) and write them to a Python file.
+    """
+    # Read the notebook as plain JSON
+    with open(notebook_path, 'r', encoding='utf-8') as f:
+        nb = json.load(f)
+
+    extracted_cells = []
+    for cell in nb.get('cells', []):
+        if cell.get('cell_type') == 'code':
+            # The source can be a list of strings or a single string
+            source = cell.get('source', '')
+            if isinstance(source, list):
+                source = ''.join(source)  # join line list into a single string
+
+            # Check if any of the class definitions appear in this cell
+            if any(f"class {name}" in source for name in class_names):
+                extracted_cells.append(source)
+
+    if not extracted_cells:
+        raise ValueError("No matching class definitions found in the notebook.")
+
+    # Write the extracted code to the output file
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write("import inspect\nimport torch\nimport torch.nn as nn\nimport torch.nn.functional as F\n\n")
+        for source in extracted_cells:
+            f.write(source)
+            f.write("\n\n")
+            if "class ModelConfig" in source:
+                f.write("model_cfg = ModelConfig()\n\n")
+
+    print(f">>> Exported {len(extracted_cells)} cell(s) → {output_path}")
+
+model_cfg = ModelConfig()
+
