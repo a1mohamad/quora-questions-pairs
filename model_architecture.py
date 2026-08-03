@@ -3,6 +3,64 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+class ModelConfig:
+    MODEL_TYPE = "LSTM_attention"
+    ATTENTION_TYPE = "ESIM_Style-MultiHead-CrossAttention-Bahdanau"
+    TOKENIZER_TYPE = "Whitespace"
+
+    NUM_HEADS = 4
+    SELF_ATTENTION_NUM_HEADS = NUM_HEADS
+    CROSS_ATTENTION_NUM_HEADS = NUM_HEADS
+
+    ATTENTION_DROPOUT = 0.0
+    SKIP_CONNECTION_IN_ATTENTION = True
+    POOLING_TYPE = "Average and Max"
+
+    # Embedding
+    EMB_NORM = False
+    FREEZE_TOKEN_EMBEDDING = True
+    TOKEN_EMBEDDING = "gloVe-6B-100d"
+    EMB_DIM = 100
+    EMB_DP = 0.0
+
+    # Model
+    LOSS = "BCE with Logits"
+    ENHC_LSTM_DROPOUT = 0.4
+    ENHC_LSTM_NUM_LAYERS = 2
+    ENHC_LSTM_DIM = 256
+    ENHC_LSTM_BIDIRECTIONAL = True
+    ENHC_LSTM_OUT = ENHC_LSTM_DIM * (2 if ENHC_LSTM_BIDIRECTIONAL else 1)
+    ENHC_LSTM_NORM = False
+    COMP_LSTM_DIM = 128
+    COMP_LSTM_BIDIRECTIONAL = True
+    COMP_LSTM_OUT = COMP_LSTM_DIM * (2 if COMP_LSTM_BIDIRECTIONAL else 1)
+    COMP_LSTM_NORM = True
+    COMP_LSTM_DROPOUT = 0.3
+    COMP_LSTM_NUM_LAYERS = 2
+    PROJ_DIMS = [256]
+    PROJ_DROPOUT = 0.3
+
+    # Loss specific settings
+    if LOSS == "Contrastive Loss":
+        MARGIN = 1.0
+    elif LOSS == "BCE with Logits":
+        LABEL_SMOOTHING = 0.05
+        FC_DIMS = [512, 256]
+        FC_DP = 0.5
+
+    MASK_FILL_NUM = -1e10
+
+    @classmethod
+    def to_dict(cls):
+        return {
+            k.lower(): v for k, v in cls.__dict__.items()
+            if not k.startswith("_")
+            and not inspect.isroutine(v)
+            and not isinstance(v, (classmethod, staticmethod))
+        }
+
+model_cfg = ModelConfig()
+
 class CrossAttentionHead(nn.Module):
     def __init__(self, hidden_dim, proj_dim, mask_fill_num=model_cfg.MASK_FILL_NUM,
                  dropout=model_cfg.ATTENTION_DROPOUT):
@@ -106,7 +164,7 @@ class QuoraSiameseClassifier(nn.Module):
             dropout=config.FC_DP
         )
         self.final_layer = nn.Linear(config.FC_DIMS[-1], 1)
-        
+
     def _build_fc_layers(self, input_dim, fc_dims, dropout):
         layers = []
         for dim in fc_dims:
@@ -117,7 +175,7 @@ class QuoraSiameseClassifier(nn.Module):
             ]
             input_dim = dim
         return nn.Sequential(*layers)
-    
+
     def _create_mask(self, question):
         return (question != 0).float()
 
@@ -137,7 +195,7 @@ class QuoraSiameseClassifier(nn.Module):
     def forward(self, q1, q2):
         out1, attn_mask1, pool_mask1 = self._encode(q1)
         out2, attn_mask2, pool_mask2 = self._encode(q2)
-        
+
         cross1 = self.cross_attention(query=out1, key_value=out2, mask_kv=attn_mask2)
         cross2 = self.cross_attention(query=out2, key_value=out1, mask_kv=attn_mask1)
 
@@ -151,56 +209,12 @@ class QuoraSiameseClassifier(nn.Module):
         comp2, _ = self.comp_lstm(proj2)
         comp1 = self.comp_lstm_norm(comp1)
         comp2 = self.comp_lstm_norm(comp2)
-        
+
         h1 = self.pool(comp1, pool_mask1)
         h2 = self.pool(comp2, pool_mask2)
         feat = torch.cat([h1, h2], dim=-1)
         final_feat = self.fc_dims(feat)
         logits = self.final_layer(final_feat)
-        
+
         return logits.squeeze(-1)
-
-def export_model_from_notebook(notebook_path: str, output_path: Path,
-                               class_names=("AvgMaxPool", "CrossAttentionHead", "MultiHeadCrossAttention",
-                                            "QuoraSiameseClassifier", "ModelConfig")):
-    with open(notebook_path, 'r', encoding='utf-8') as f:
-        nb = json.load(f)
-
-    # Collect all matching cells, but store them by class name to avoid duplicates
-    # We'll keep the *last* cell that defines each class.
-    class_to_cell = {}
-    cell_order = []   # preserve original order for output
-
-    for cell in nb.get('cells', []):
-        if cell.get('cell_type') != 'code':
-            continue
-        source = cell.get('source', '')
-        if isinstance(source, list):
-            source = ''.join(source)
-
-        for name in class_names:
-            if f"class {name}" in source:
-                # Overwrite any previous definition with the same class name
-                if name in class_to_cell:
-                    # Remove from ordered list to replace later
-                    cell_order.remove(class_to_cell[name])
-                class_to_cell[name] = source
-                cell_order.append(source)
-                break   # a cell is already matched, no need to check other class names
-
-    if not cell_order:
-        raise ValueError("No matching class definitions found.")
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, 'w', encoding='utf-8') as f:
-        f.write("import inspect\nimport torch\nimport torch.nn as nn\nimport torch.nn.functional as F\n\n")
-        for source in cell_order:
-            f.write(source)
-            f.write("\n\n")
-            if "class ModelConfig" in source:
-                f.write("model_cfg = ModelConfig()\n\n")
-
-    print(f">>> Exported {len(cell_order)} unique cell(s) → {output_path}")
-
-model_cfg = ModelConfig()
 
