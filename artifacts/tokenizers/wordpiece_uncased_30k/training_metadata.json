@@ -1,0 +1,111 @@
+{
+    "implementation": {
+        "algorithm": "WordPiece",
+        "backend": "Hugging Face Tokenizers",
+        "wrapper": "PreTrainedTokenizerFast"
+    },
+    "configuration": {
+        "vocab_size": 30000,
+        "min_frequency": 2,
+        "continuing_subword_prefix": "##",
+        "max_input_chars_per_word": 100,
+        "lowercase": true,
+        "strip_accents": true,
+        "clean_text": true,
+        "handle_chinese_chars": true,
+        "max_sequence_length": 64,
+        "max_pair_length": 128,
+        "pad_token": "[PAD]",
+        "unk_token": "[UNK]",
+        "cls_token": "[CLS]",
+        "sep_token": "[SEP]",
+        "mask_token": "[MASK]",
+        "valid_size": 0.1,
+        "seed": 28,
+        "length_analysis_batch_size": 4096,
+        "special_tokens": [
+            "[PAD]",
+            "[UNK]",
+            "[CLS]",
+            "[SEP]",
+            "[MASK]"
+        ]
+    },
+    "data": {
+        "source_csv": "data\\raw\\train.csv",
+        "train_split": "data\\processed\\train_split.csv",
+        "validation_split": "data\\processed\\valid_split.csv",
+        "training_corpus": "data\\processed\\tokenizer_corpus.txt",
+        "train_rows": 363858,
+        "validation_rows": 40429,
+        "corpus_questions": 727716,
+        "tokenizer_training_source": "question1 and question2 from the training split only"
+    },
+    "training_results": {
+        "actual_vocab_size": 30000,
+        "special_token_ids": {
+            "pad_token_id": 0,
+            "unk_token_id": 1,
+            "cls_token_id": 2,
+            "sep_token_id": 3,
+            "mask_token_id": 4
+        },
+        "saved_files": [
+            "special_tokens_map.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+            "training_metadata.json",
+            "vocab.txt"
+        ]
+    },
+    "sequence_length_analysis": {
+        "question1": {
+            "count": 363858,
+            "mean": 13.055,
+            "p50": 11,
+            "p90": 21,
+            "p95": 26,
+            "p99": 36,
+            "max": 153,
+            "configured_limit": 64,
+            "count_over_limit": 146,
+            "percent_over_limit": 0.0401
+        },
+        "question2": {
+            "count": 363858,
+            "mean": 13.281,
+            "p50": 11,
+            "p90": 22,
+            "p95": 28,
+            "p99": 40,
+            "max": 282,
+            "configured_limit": 64,
+            "count_over_limit": 515,
+            "percent_over_limit": 0.1415
+        },
+        "all_separate_questions": {
+            "count": 727716,
+            "mean": 13.168,
+            "p50": 11,
+            "p90": 22,
+            "p95": 27,
+            "p99": 38,
+            "max": 282,
+            "configured_limit": 64,
+            "count_over_limit": 661,
+            "percent_over_limit": 0.0908
+        },
+        "paired_inputs": {
+            "count": 363858,
+            "mean": 29.336,
+            "p50": 26,
+            "p90": 45,
+            "p95": 53,
+            "p99": 72,
+            "max": 326,
+            "configured_limit": 128,
+            "count_over_limit": 92,
+            "percent_over_limit": 0.0253
+        }
+    }
+}
